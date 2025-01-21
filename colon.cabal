@@ -1,0 +1,48 @@
+cabal-version: 3.0
+name: colon
+version: 0.1.0.0
+synopsis: Custom interpreter for Colon-like language
+license: MIT
+author: kamilatop
+maintainer: kamilatop@gmail.com
+category: Language
+build-type: Simple
+
+library
+  exposed-modules:
+    BaseStructureFix
+    Comparisons
+    ControlFlow
+    IOHandler
+    ParserEngine
+    CommentParser
+    Variables
+    StringHandler
+  hs-source-dirs: src
+  build-depends:
+    base >=4.7 && <5,
+    containers,
+    transformers,
+    megaparsec,
+    hspec,
+    mtl
+  default-language: Haskell2010
+
+executable colon-exe
+  main-is: Main.hs
+  hs-source-dirs: app
+  build-depends:
+    base >=4.7 && <5,
+    colon
+  default-language: Haskell2010
+
+test-suite colon-test
+  type: exitcode-stdio-1.0
+  main-is: TestSuite.hs
+  hs-source-dirs: test
+  build-depends:
+    base >=4.7 && <5,
+    hspec,
+    megaparsec,
+    colon
+  default-language: Haskell2010
