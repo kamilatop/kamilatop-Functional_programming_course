@@ -26,7 +26,21 @@ doLoop start end ops st
         Left err      -> Left err  -- Если возникла ошибка в процессе выполнения, возвращаем ее
         Right newSt   -> doLoop (start + 1) end ops newSt  -- Иначе повторяем с обновленным стеком
 
+-- | Цикл BEGIN ... UNTIL:
+-- Повторяем выполнение операций до тех пор, пока условие не станет истинным.
+beginUntil :: [Operation] -> Stack -> (Stack -> Bool) -> Either ExecutionError Stack
+beginUntil ops stack condition = 
+  let loop stack' = 
+        if condition stack' 
+          then Right stack'  -- Если условие истинно, возвращаем текущий стек
+          else 
+            case executeProgram ops stack' of
+              Left err      -> Left err  -- Если ошибка при выполнении операций
+              Right newSt   -> loop newSt  -- Иначе продолжаем до тех пор, пока условие не станет истинным
+  in loop stack  -- Начинаем цикл с первоначального состояния стека
+
 -- | Функция для выполнения программы (списка операций) на текущем стеке.
+-- Функция выполняет все операции и возвращает новый стек, если операции выполнены без ошибок.
 executeProgram :: [Operation] -> Stack -> Either ExecutionError Stack
 executeProgram [] st = Right st  -- Если список операций пуст, возвращаем текущий стек
 executeProgram (op:ops) st = 
@@ -41,34 +55,34 @@ executeProgram (op:ops) st =
         Right (a, st1) ->
           case pop st1 of
             Left err         -> Left err  -- Ошибка, если стек пуст после первого pop
-            Right (b, st2) -> executeProgram ops (push (b + a) st2)  -- Сложение и продолжение
+            Right (b, st2) -> executeProgram ops (push (b + a) st2)
 
     -- Операция: вычитание (b - a)
-    OpSub ->
+    OpSub -> 
       case pop st of
         Left err         -> Left err
         Right (a, st1) ->
           case pop st1 of
             Left err         -> Left err
-            Right (b, st2) -> executeProgram ops (push (b - a) st2)  -- Вычитание и продолжение
+            Right (b, st2) -> executeProgram ops (push (b - a) st2)
 
     -- Операция: умножение
-    OpMul ->
+    OpMul -> 
       case pop st of
         Left err         -> Left err
         Right (a, st1) ->
           case pop st1 of
             Left err         -> Left err
-            Right (b, st2) -> executeProgram ops (push (b * a) st2)  -- Умножение и продолжение
+            Right (b, st2) -> executeProgram ops (push (b * a) st2)
 
     -- Операция: деление (b ÷ a), с проверкой деления на ноль
-    OpDiv ->
+    OpDiv -> 
       case pop st of
         Left err         -> Left err
         Right (a, st1) ->
           case pop st1 of
             Left err         -> Left err
-            Right (b, st2) ->
-              if a == 0
-                then Left DivisionByZero  -- Ошибка, если деление на ноль
-                else executeProgram ops (push (b `div` a) st2)  -- Деление и продолжение
+            Right (b, st2) -> 
+              if a == 0 
+                then Left DivisionByZero  -- Ошибка при делении на ноль
+                else executeProgram ops (push (b `div` a) st2)

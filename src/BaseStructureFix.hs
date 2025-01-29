@@ -26,6 +26,7 @@ data Operation
   | OpSub          -- ^ Операция вычитания
   | OpMul          -- ^ Операция умножения
   | OpDiv          -- ^ Операция деления
+  | OpBeginUntil   -- ^ Цикл BEGIN ... UNTIL
   deriving (Show, Eq)
 
 -- | Определение возможных ошибок исполнения:

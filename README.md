@@ -240,3 +240,7 @@ PS C:\Users\kamilatop\Desktop\Functional_Programming>
 
 4. **Результат выполнения**:
    - Программа завершила выполнение с результатом: `[3, 0]`.
+
+
+
+### Цикл BEGIN ... UNTIL
