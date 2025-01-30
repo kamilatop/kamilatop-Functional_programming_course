@@ -5,6 +5,7 @@ import BaseStructureFix
 import Comparisons
 import ControlFlow  
 import IOHandler (emit, printTop)
+import StackCommentChecker (checkStackComments, StackCommentMode(..), StackCommentError(..))
 import qualified Data.Either as E
 
 main :: IO ()
@@ -34,3 +35,19 @@ main = hspec $ do
     it "Вывод символа" $ do
       emit 'A' [] `shouldBe` ([], "A")
       printTop [10] `shouldBe` Right ([], "10 ")
+
+  describe "Проверка комментариев про стек" $ do
+    it "Корректный комментарий (2 входа, 1 выход) - режим StrictMode" $ do
+      checkStackComments StrictMode "( a b -- c )" 2 1 `shouldBe` Right ()
+    
+    it "Несоответствие (ожидалось 2 -- 1, но получено 1 -- 1) - режим StrictMode" $ do
+      checkStackComments StrictMode "( a b -- c )" 1 1 `shouldBe` Left (Mismatch 2 1 1 1)
+
+    it "Неверный синтаксис - режим StrictMode" $ do
+      checkStackComments StrictMode "( a b c d )" 2 1 `shouldBe` Left (InvalidSyntax "Некорректный синтаксис комментария стека")
+
+    it "Несоответствие (ожидалось 3 -- 1, но получено 2 -- 1) - режим WarningMode (должно проходить)" $ do
+      checkStackComments WarningMode "( a b c -- d )" 2 1 `shouldBe` Right ()
+    
+    it "Неверный синтаксис - режим WarningMode (должно проходить без ошибки)" $ do
+      checkStackComments WarningMode "( a b c d )" 2 1 `shouldBe` Right ()
