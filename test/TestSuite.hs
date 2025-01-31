@@ -28,7 +28,9 @@ main = hspec $ do
       doLoop 0 3 [OpInt 1, OpAdd] [0,0] `shouldBe` Right [3,0]
 
     it "Цикл BEGIN ... UNTIL" $ do
-      let condition stack = head stack == 10  
+      let condition stack = case stack of
+                             [] -> False
+                             (x:_) -> x == 10
       beginUntil [OpInt 1, OpAdd] [0] condition `shouldBe` Right [10]  
 
   describe "Операции ввода-вывода" $ do
@@ -51,3 +53,11 @@ main = hspec $ do
     
     it "Неверный синтаксис - режим WarningMode (должно проходить без ошибки)" $ do
       checkStackComments WarningMode "( a b c d )" 2 1 `shouldBe` Right ()
+
+  describe "Операции с массивами" $ do
+    it "Создание массива" $ do
+      executeProgram [OpCreateArray 10] emptyStack `shouldBe` Right []
+
+    it "Запись и чтение из массива" $ do
+      let program = [OpCreateArray 10, OpInt 3, OpInt 42, OpArrayStore, OpInt 3, OpArrayFetch]
+      executeProgram program emptyStack `shouldBe` Right [42]

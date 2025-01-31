@@ -1,63 +1,46 @@
--- Файл: src/ControlFlow.hs
--- Описание:
--- Модуль, содержащий функции для выполнения условных операторов (if-then-else) и циклов (do-while)
--- с использованием стека и операций.
-
 module ControlFlow where
 
 import BaseStructureFix
+import qualified Data.Map as Map
 
--- | Условный оператор IF-THEN-ELSE:
--- Если верхний элемент стека не равен 0, выполняем блок thenBranch, иначе elseBranch.
 ifThenElse :: Stack -> [Operation] -> [Operation] -> Either ExecutionError Stack
 ifThenElse (cond:restStack) thenBranch elseBranch =
   if cond /= 0
-    then executeProgram thenBranch restStack  -- Если условие истинно, выполняем thenBranch
-    else executeProgram elseBranch restStack   -- Если условие ложно, выполняем elseBranch
-ifThenElse _ _ _ = Left StackUnderflow  -- Если стек пуст, возвращаем ошибку
+    then executeProgram thenBranch restStack
+    else executeProgram elseBranch restStack
+ifThenElse _ _ _ = Left StackUnderflow
 
--- | Цикл DO I LOOP:
--- Повторяем выполнение операций с увеличением переменной от start до end.
 doLoop :: Int -> Int -> [Operation] -> Stack -> Either ExecutionError Stack
 doLoop start end ops st
-  | start >= end = Right st  -- Если достигнут предел, возвращаем текущий стек
+  | start >= end = Right st
   | otherwise = 
       case executeProgram ops st of
-        Left err      -> Left err  -- Если возникла ошибка в процессе выполнения, возвращаем ее
-        Right newSt   -> doLoop (start + 1) end ops newSt  -- Иначе повторяем с обновленным стеком
+        Left err      -> Left err
+        Right newSt   -> doLoop (start + 1) end ops newSt
 
--- | Цикл BEGIN ... UNTIL:
--- Повторяем выполнение операций до тех пор, пока условие не станет истинным.
 beginUntil :: [Operation] -> Stack -> (Stack -> Bool) -> Either ExecutionError Stack
 beginUntil ops stack condition = 
   let loop stack' = 
         if condition stack' 
-          then Right stack'  -- Если условие истинно, возвращаем текущий стек
+          then Right stack'
           else 
             case executeProgram ops stack' of
-              Left err      -> Left err  -- Если ошибка при выполнении операций
-              Right newSt   -> loop newSt  -- Иначе продолжаем до тех пор, пока условие не станет истинным
-  in loop stack  -- Начинаем цикл с первоначального состояния стека
+              Left err      -> Left err
+              Right newSt   -> loop newSt
+  in loop stack
 
--- | Функция для выполнения программы (списка операций) на текущем стеке.
--- Функция выполняет все операции и возвращает новый стек, если операции выполнены без ошибок.
 executeProgram :: [Operation] -> Stack -> Either ExecutionError Stack
-executeProgram [] st = Right st  -- Если список операций пуст, возвращаем текущий стек
+executeProgram [] st = Right st
 executeProgram (op:ops) st = 
   case op of
-    -- Операция: положить целое число на стек
     OpInt n -> executeProgram ops (push n st)
-
-    -- Операция: сложение
     OpAdd -> 
       case pop st of
-        Left err         -> Left err  -- Ошибка, если стек пуст
+        Left err         -> Left err
         Right (a, st1) ->
           case pop st1 of
-            Left err         -> Left err  -- Ошибка, если стек пуст после первого pop
+            Left err         -> Left err
             Right (b, st2) -> executeProgram ops (push (b + a) st2)
-
-    -- Операция: вычитание (b - a)
     OpSub -> 
       case pop st of
         Left err         -> Left err
@@ -65,8 +48,6 @@ executeProgram (op:ops) st =
           case pop st1 of
             Left err         -> Left err
             Right (b, st2) -> executeProgram ops (push (b - a) st2)
-
-    -- Операция: умножение
     OpMul -> 
       case pop st of
         Left err         -> Left err
@@ -74,8 +55,6 @@ executeProgram (op:ops) st =
           case pop st1 of
             Left err         -> Left err
             Right (b, st2) -> executeProgram ops (push (b * a) st2)
-
-    -- Операция: деление (b ÷ a), с проверкой деления на ноль
     OpDiv -> 
       case pop st of
         Left err         -> Left err
@@ -84,5 +63,43 @@ executeProgram (op:ops) st =
             Left err         -> Left err
             Right (b, st2) -> 
               if a == 0 
-                then Left DivisionByZero  -- Ошибка при делении на ноль
+                then Left DivisionByZero
                 else executeProgram ops (push (b `div` a) st2)
+    OpCreateArray size -> 
+      case createArray size Map.empty of
+        Left err -> Left err
+        Right arrays -> executeProgram ops st
+    OpArrayStore -> 
+      case pop st of
+        Left err -> Left err
+        Right (value, st1) ->
+          case pop st1 of
+            Left err -> Left err
+            Right (elementIndex, st2) ->
+              case pop st2 of
+                Left err -> Left err
+                Right (arrayIndex, st3) ->
+                  case arrayStore arrayIndex elementIndex value Map.empty of
+                    Left err -> Left err
+                    Right arrays -> executeProgram ops st3
+    OpArrayFetch -> 
+      case pop st of
+        Left err -> Left err
+        Right (elementIndex, st1) ->
+          case pop st1 of
+            Left err -> Left err
+            Right (arrayIndex, st2) ->
+              case arrayFetch arrayIndex elementIndex Map.empty of
+                Left err -> Left err
+                Right value -> executeProgram ops (push value st2)
+    OpArrayModify -> 
+      case pop st of
+        Left err -> Left err
+        Right (elementIndex, st1) ->
+          case pop st1 of
+            Left err -> Left err
+            Right (arrayIndex, st2) ->
+              case arrayModify arrayIndex elementIndex (+1) Map.empty of
+                Left err -> Left err
+                Right arrays -> executeProgram ops st2
+    _ -> Left (UnknownOperation "Unsupported operation")

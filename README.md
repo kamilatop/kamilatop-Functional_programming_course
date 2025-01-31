@@ -394,3 +394,111 @@ checkStackComments WarningMode "( a b c d )" 2 1 `shouldBe` Right ()
 2. **Поддерживаются два режима: строгий (ошибки) и мягкий (предупреждения).**
 3. **Функциональность полностью протестирована и интегрирована в систему.**
 4. **Все тесты успешно пройдены, проверка работает корректно.**
+----
+# Массивы 
+
+## 1. Добавление новых типов данных и операций
+В файле `BaseStructureFix.hs` были добавлены новые типы данных и операции:
+
+```haskell
+data Operation
+  = OpInt Int          -- Положить целое число на стек
+  | OpAdd              -- Операция сложения
+  | OpSub              -- Операция вычитания
+  | OpMul              -- Операция умножения
+  | OpDiv              -- Операция деления
+  | OpBeginUntil       -- Цикл BEGIN ... UNTIL
+  | OpCreateArray Int  -- Создание массива
+  | OpArrayStore       -- Запись значения в массив
+  | OpArrayFetch       -- Чтение значения из массива
+  | OpArrayModify      -- Модификация значения в массиве
+  deriving (Show, Eq)
+```
+## 2. Реализация поддержки массивов
+Для хранения массивов и их индексов была использована структура данных Data.Map:
+
+```haskell
+type ArrayStore = Map.Map Int [Int]
+createArray :: Int -> ArrayStore -> Either ExecutionError ArrayStore
+createArray size arrays
+  | size <= 0 = Left ArrayIndexOutOfBounds
+  | otherwise = Right $ Map.insert (Map.size arrays) (replicate size 0) arrays
+
+arrayStore :: Int -> Int -> Int -> ArrayStore -> Either ExecutionError ArrayStore
+arrayStore arrayIndex elementIndex value arrays =
+  case Map.lookup arrayIndex arrays of
+    Nothing -> Left ArrayNotInitialized
+    Just arr ->
+      if elementIndex < 0 || elementIndex >= length arr
+        then Left ArrayIndexOutOfBounds
+        else Right $ Map.insert arrayIndex (take elementIndex arr ++ [value] ++ drop (elementIndex + 1) arr) arrays
+
+arrayFetch :: Int -> Int -> ArrayStore -> Either ExecutionError Int
+arrayFetch arrayIndex elementIndex arrays =
+  case Map.lookup arrayIndex arrays of
+    Nothing -> Left ArrayNotInitialized
+    Just arr ->
+      if elementIndex < 0 || elementIndex >= length arr
+        then Left ArrayIndexOutOfBounds
+        else Right $ arr !! elementIndex
+```
+
+## 3. Реализация операций с массивами
+В файле ControlFlow.hs были добавлены обработчики для новых операций:
+
+```haskell
+executeProgram :: [Operation] -> Stack -> Either ExecutionError Stack
+executeProgram [] st = Right st
+executeProgram (op:ops) st = 
+  case op of
+    OpInt n -> executeProgram ops (push n st)
+    OpAdd -> 
+      case pop st of
+        Left err         -> Left err
+        Right (a, st1) ->
+          case pop st1 of
+            Left err         -> Left err
+            Right (b, st2) -> executeProgram ops (push (b + a) st2)
+    OpCreateArray size -> 
+      case createArray size Map.empty of
+        Left err -> Left err
+        Right arrays -> executeProgram ops st
+    OpArrayStore -> 
+      case pop st of
+        Left err -> Left err
+        Right (value, st1) ->
+          case pop st1 of
+            Left err -> Left err
+            Right (elementIndex, st2) ->
+              case pop st2 of
+                Left err -> Left err
+                Right (arrayIndex, st3) ->
+                  case arrayStore arrayIndex elementIndex value Map.empty of
+                    Left err -> Left err
+                    Right arrays -> executeProgram ops st3
+    OpArrayFetch -> 
+      case pop st of
+        Left err -> Left err
+        Right (elementIndex, st1) ->
+          case pop st1 of
+            Left err -> Left err
+            Right (arrayIndex, st2) ->
+              case arrayFetch arrayIndex elementIndex Map.empty of
+                Left err -> Left err
+                Right value -> executeProgram ops (push value st2)
+    _ -> Left (UnknownOperation "Unsupported operation")
+
+```
+
+## 4. Тестирование
+Для проверки корректности реализации были добавлены тесты в файл TestSuite.hs:
+
+```haskell
+describe "Операции с массивами" $ do
+  it "Создание массива" $ do
+    executeProgram [OpCreateArray 10] emptyStack `shouldBe` Right []
+
+  it "Запись и чтение из массива" $ do
+    let program = [OpCreateArray 10, OpInt 3, OpInt 42, OpArrayStore, OpInt 3, OpArrayFetch]
+    executeProgram program emptyStack `shouldBe` Right [42]
+```
