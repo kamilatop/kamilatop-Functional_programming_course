@@ -4,6 +4,7 @@ module BaseStructureFix
   , ExecutionResult(..)
   , Stack
   , ArrayStore
+  , Dictionary
   , emptyStack
   , push
   , pop
@@ -28,6 +29,9 @@ data Operation
   | OpArrayStore       
   | OpArrayFetch       
   | OpArrayModify      
+  | OpColon String      
+  | OpSemicolon         
+  | OpCall String       
   deriving (Show, Eq)
 
 data ExecutionError
@@ -36,25 +40,14 @@ data ExecutionError
   | UnknownOperation String
   | ArrayIndexOutOfBounds
   | ArrayNotInitialized
+  | WordNotDefined String  
   deriving (Show, Eq)
 
 instance Exception ExecutionError
 
 type Stack = [Int]
 type ArrayStore = Map.Map Int [Int]
-
-data ExecutionResult = ExecutionResult
-  { stack  :: Stack
-  , arrays :: ArrayStore
-  , output :: String
-  } deriving (Show, Eq)
-
-formatExecutionError :: ExecutionError -> String
-formatExecutionError StackUnderflow         = "Ошибка: Стек пуст"
-formatExecutionError DivisionByZero         = "Ошибка: Деление на ноль"
-formatExecutionError (UnknownOperation op)  = "Ошибка: Неизвестная операция: " ++ op
-formatExecutionError ArrayIndexOutOfBounds  = "Ошибка: Выход за границы массива"
-formatExecutionError ArrayNotInitialized    = "Ошибка: Массив не инициализирован"
+type Dictionary = Map.Map String [Operation]
 
 emptyStack :: Stack
 emptyStack = []
@@ -97,3 +90,11 @@ arrayModify arrayIndex elementIndex f arrays =
       if elementIndex < 0 || elementIndex >= length arr
         then Left ArrayIndexOutOfBounds
         else Right $ Map.insert arrayIndex (take elementIndex arr ++ [f (arr !! elementIndex)] ++ drop (elementIndex + 1) arr) arrays
+
+formatExecutionError :: ExecutionError -> String
+formatExecutionError StackUnderflow         = "Ошибка: Стек пуст"
+formatExecutionError DivisionByZero         = "Ошибка: Деление на ноль"
+formatExecutionError (UnknownOperation op)  = "Ошибка: Неизвестная операция: " ++ op
+formatExecutionError ArrayIndexOutOfBounds  = "Ошибка: Выход за границы массива"
+formatExecutionError ArrayNotInitialized    = "Ошибка: Массив не инициализирован"
+formatExecutionError (WordNotDefined name)  = "Ошибка: Слово '" ++ name ++ "' не определено"
