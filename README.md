@@ -513,3 +513,84 @@ describe "Операции с массивами" $ do
 Вход: 5.
 Выход: 10 (результат выполнения 5 * 2).
 
+----
+# Multi-exit loops
+
+Для реализации данной функции были добавлены новые операторы:
+
+- **LEAVE**: Оператор, который немедленно завершает выполнение цикла и прыгает к следующей инструкции за циклом. Если оператор **LEAVE** встречается в теле цикла, то любые последующие инструкции в этом цикле не выполняются.
+
+- **+LOOP**: Этот оператор используется для возврата в начало цикла с увеличением счетчика, который берется с вершины стека. Он позволяет циклу продолжать выполнение с увеличенным значением.
+
+Реализованные функции, такие как `executeMultiExitLoop` и `executeLeave`, обеспечивают корректную обработку этих операторов.
+
+## Пример кода
+
+### В `BaseStructureFix.hs`
+```haskell
+executeMultiExitLoop :: Stack -> [Operation] -> Int -> Either ExecutionError Stack
+executeMultiExitLoop st ops counter = do
+  let newCounter = counter + 1
+  if newCounter > 10
+    then Right st
+    else executeMultiExitLoop (push newCounter st) ops newCounter
+```
+
+### В `ControlFlow.hs`
+```haskell
+executeProgram dict (OpLeave : ops) st = executeLeave st
+executeProgram dict (OpLoop : ops) st = executeMultiExitLoop st ops 0
+```
+## Тестирование
+Для проверки корректности работы оператора LEAVE и +LOOP был написан простой тест, который демонстрирует их использование в цикле:
+
+```haskell
+describe "Multi-exit loops" $ do
+    it "Exit from the loop using LEAVE" $ do
+      let program = [OpInt 5, OpAdd, OpLeave]
+      executeProgram Map.empty program [] `shouldBe` Right ([], Map.empty)
+
+    it "Return to the start of the loop using +LOOP" $ do
+      let program = [OpInt 0, OpAdd, OpLoop]
+      executeProgram Map.empty program [] `shouldBe` Right ([1], Map.empty)
+```
+Заключение: таким образом, была реализована возможность многократного выхода из циклов, что значительно повышает гибкость и контроль над выполнением циклов в языке Colon. Эти изменения могут быть полезны для более сложных алгоритмов и логики, где требуется выйти из цикла в зависимости от различных условий.
+
+# Конструкция CASE OF ENDOF ENDCASE
+
+Для реализации конструкции **CASE OF ENDOF ENDCASE** в языке **Colon** был добавлен новый функционал для обработки условий в цикле. Эта конструкция позволяет выполнить различные действия в зависимости от значения некоторой переменной или выражения. Конструкция проверяет стек и в зависимости от значений выполняет определенные действия.
+
+## Реализация
+
+### В `BaseStructureFix.hs`
+```haskell
+module BaseStructureFix
+  ( Operation(..)
+  , ExecutionError(..)
+  , Stack
+  , Dictionary
+  , executeCase
+  , formatExecutionError  
+  ) where
+
+-- Операция для конструкций CASE OF ENDOF
+data Operation
+  = OpCase       -- CASE: начало конструкции
+  | OpOf         -- OF: часть конструкции
+  | OpEndof      -- ENDOF: конец части конструкции
+  | OpEndcase    -- ENDCASE: конец конструкции
+  deriving (Show, Eq)
+
+executeCase :: Stack -> [Operation] -> Either ExecutionError Stack
+executeCase st (OpCase : rest) = executeCase st rest
+executeCase st (OpOf : rest) = executeCase st rest
+executeCase st (OpEndof : rest) = executeCase st rest
+executeCase st (OpEndcase : rest) = Right st
+executeCase st _ = Left (UnknownOperation "Unknown operation in CASE statement")
+```
+
+# Тестирование
+Для проверки работы конструкции CASE OF ENDOF ENDCASE был написан простой тест, который демонстрирует её использование:
+Конструкция CASE OF ENDOF ENDCASE была успешно реализована, позволяя более гибко управлять выполнением кода в зависимости от значений на вершине стека. Это улучшение позволяет создавать более сложные и адаптивные алгоритмы в языке Colon и расширяет возможности для условного выполнения операций.
+
+

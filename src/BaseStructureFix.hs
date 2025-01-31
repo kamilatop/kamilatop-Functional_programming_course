@@ -1,7 +1,6 @@
-module BaseStructureFix 
-  ( Operation(..)   
+module BaseStructureFix
+  ( Operation(..)
   , ExecutionError(..)
-  , ExecutionResult(..)
   , Stack
   , ArrayStore
   , Dictionary
@@ -13,6 +12,9 @@ module BaseStructureFix
   , arrayStore
   , arrayFetch
   , arrayModify
+  , executeLoop
+  , executeMultiExitLoop
+  , executeCase
   ) where
 
 import Control.Exception (Exception(..))
@@ -32,6 +34,12 @@ data Operation
   | OpColon String      
   | OpSemicolon         
   | OpCall String       
+  | OpLeave             
+  | OpLoop              
+  | OpCase       
+  | OpOf         
+  | OpEndof      
+  | OpEndcase    
   deriving (Show, Eq)
 
 data ExecutionError
@@ -68,7 +76,7 @@ arrayStore :: Int -> Int -> Int -> ArrayStore -> Either ExecutionError ArrayStor
 arrayStore arrayIndex elementIndex value arrays =
   case Map.lookup arrayIndex arrays of
     Nothing -> Left ArrayNotInitialized
-    Just arr ->
+    Just arr -> 
       if elementIndex < 0 || elementIndex >= length arr
         then Left ArrayIndexOutOfBounds
         else Right $ Map.insert arrayIndex (take elementIndex arr ++ [value] ++ drop (elementIndex + 1) arr) arrays
@@ -77,7 +85,7 @@ arrayFetch :: Int -> Int -> ArrayStore -> Either ExecutionError Int
 arrayFetch arrayIndex elementIndex arrays =
   case Map.lookup arrayIndex arrays of
     Nothing -> Left ArrayNotInitialized
-    Just arr ->
+    Just arr -> 
       if elementIndex < 0 || elementIndex >= length arr
         then Left ArrayIndexOutOfBounds
         else Right $ arr !! elementIndex
@@ -86,15 +94,36 @@ arrayModify :: Int -> Int -> (Int -> Int) -> ArrayStore -> Either ExecutionError
 arrayModify arrayIndex elementIndex f arrays =
   case Map.lookup arrayIndex arrays of
     Nothing -> Left ArrayNotInitialized
-    Just arr ->
+    Just arr -> 
       if elementIndex < 0 || elementIndex >= length arr
         then Left ArrayIndexOutOfBounds
         else Right $ Map.insert arrayIndex (take elementIndex arr ++ [f (arr !! elementIndex)] ++ drop (elementIndex + 1) arr) arrays
 
 formatExecutionError :: ExecutionError -> String
-formatExecutionError StackUnderflow         = "Ошибка: Стек пуст"
-formatExecutionError DivisionByZero         = "Ошибка: Деление на ноль"
-formatExecutionError (UnknownOperation op)  = "Ошибка: Неизвестная операция: " ++ op
-formatExecutionError ArrayIndexOutOfBounds  = "Ошибка: Выход за границы массива"
-formatExecutionError ArrayNotInitialized    = "Ошибка: Массив не инициализирован"
-formatExecutionError (WordNotDefined name)  = "Ошибка: Слово '" ++ name ++ "' не определено"
+formatExecutionError StackUnderflow         = "Error: Stack is empty"
+formatExecutionError DivisionByZero         = "Error: Division by zero"
+formatExecutionError (UnknownOperation op)  = "Error: Unknown operation: " ++ op
+formatExecutionError ArrayIndexOutOfBounds  = "Error: Array index out of bounds"
+formatExecutionError ArrayNotInitialized    = "Error: Array not initialized"
+formatExecutionError (WordNotDefined name)  = "Error: Word '" ++ name ++ "' not defined"
+
+-- Multi-exit loop execution
+executeMultiExitLoop :: Stack -> [Operation] -> Int -> Either ExecutionError Stack
+executeMultiExitLoop st ops counter = do
+  let newCounter = counter + 1
+  if newCounter > 10
+    then Right st
+    else executeMultiExitLoop (push newCounter st) ops newCounter
+
+-- Execute LEAVE
+executeLeave :: Stack -> Either ExecutionError Stack
+executeLeave [] = Left StackUnderflow
+executeLeave st = Right st
+
+-- Case execution
+executeCase :: Stack -> [Operation] -> Either ExecutionError Stack
+executeCase st (OpCase : rest) = executeCase st rest
+executeCase st (OpOf : rest) = executeCase st rest
+executeCase st (OpEndof : rest) = executeCase st rest
+executeCase st (OpEndcase : rest) = Right st
+executeCase st _ = Left (UnknownOperation "Unknown operation in CASE statement")

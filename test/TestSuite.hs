@@ -61,3 +61,13 @@ main = hspec $ do
     it "Запись и чтение из массива" $ do
       let program = [OpCreateArray 10, OpInt 3, OpInt 42, OpArrayStore, OpInt 3, OpArrayFetch]
       executeProgram program emptyStack `shouldBe` Right [42]
+
+    describe "Multi-exit loops" $ do
+    it "Exit from the loop using LEAVE" $ do
+      let program = [OpInt 5, OpAdd, OpLeave]
+      executeProgram Map.empty program [] `shouldBe` Right ([], Map.empty)
+
+  describe "Case Statement" $ do
+    it "Use CASE OF ENDOF ENDCASE" $ do
+      let program = [OpCase, OpOf, OpEndof, OpEndcase]
+      executeProgram Map.empty program [] `shouldBe` Right ([], Map.empty)
